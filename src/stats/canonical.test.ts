@@ -1,35 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { canonicalJson, hashProtocol } from "./canonical";
+import { SPEC_VERSION } from "./version";
+import { makeProtocol } from "./fixtures";
 import type { Protocol } from "../types";
-
-function makeProtocol(mcid: number): Protocol {
-  return {
-    title: "Magnesium and sleep",
-    intervention: {
-      name: "Magnesium glycinate",
-      dose: "200 mg",
-      schedule: "nightly",
-      onsetLagDays: 3,
-      washoutDays: 5,
-    },
-    design: "ABA",
-    primaryMetricId: "hrv",
-    secondaryMetricIds: ["rhr"],
-    mcid,
-    mcidRationale: "Half of my observed seasonal swing in HRV.",
-    phases: [
-      { phase: "baseline", startDate: "2026-01-01", endDate: "2026-01-28" },
-      { phase: "intervention", startDate: "2026-01-29", endDate: "2026-02-25" },
-      { phase: "withdrawal", startDate: "2026-02-26", endDate: "2026-03-25" },
-    ],
-    stoppingRule: { kind: "none" },
-    analysisPlan: "phase_means_neff",
-  };
-}
 
 /** Same values as makeProtocol, keys inserted in a scrambled order. */
 function scrambledProtocol(mcid: number): Protocol {
   const p = {
+    specVersion: SPEC_VERSION,
     analysisPlan: "phase_means_neff",
     stoppingRule: { kind: "none" },
     phases: [
@@ -56,15 +34,15 @@ function scrambledProtocol(mcid: number): Protocol {
 
 describe("§8.7 hash canonicalization", () => {
   it("identical values with different key insertion order hash the same", async () => {
-    const a = await hashProtocol(makeProtocol(5));
+    const a = await hashProtocol(makeProtocol({ mcid: 5 }));
     const b = await hashProtocol(scrambledProtocol(5));
     expect(a).toBe(b);
     expect(a).toMatch(/^[0-9a-f]{64}$/);
   });
 
   it("changing one MCID digit changes the hash", async () => {
-    const a = await hashProtocol(makeProtocol(5));
-    const b = await hashProtocol(makeProtocol(5.1));
+    const a = await hashProtocol(makeProtocol({ mcid: 5 }));
+    const b = await hashProtocol(makeProtocol({ mcid: 5.1 }));
     expect(a).not.toBe(b);
   });
 

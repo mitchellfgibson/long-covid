@@ -37,6 +37,7 @@ export interface Protocol {
   phases: ProtocolPhase[];
   stoppingRule: StoppingRule;
   analysisPlan: "phase_means_neff"; // only option in v1; exists so the hash covers it
+  specVersion: string; // §5.5. Inside the hashed object, so the lock covers it.
 }
 
 export type StoppingRule =

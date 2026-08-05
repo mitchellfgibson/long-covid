@@ -1,4 +1,5 @@
-import type { Phase, ProtocolPhase } from "../types";
+import type { Observation, Phase, ProtocolPhase } from "../types";
+import { MISSED_DOSE } from "../confounders";
 import { daysBetween } from "./series";
 
 export type ExclusionReason = "onset_lag" | "washout";
@@ -40,6 +41,50 @@ export function assignPhases(
     }
     return { date, phase: null, phaseIndex: null, excluded: false };
   });
+}
+
+export interface OnsetLagWarning {
+  date: string;
+  phaseIndex: number;
+  /** 1-based calendar day within the intervention phase. */
+  dayOfPhase: number;
+  onsetLagDays: number;
+}
+
+/**
+ * The onset window is anchored to the phase start date, but the pharmacological
+ * clock starts at the first dose. A missed-dose flag inside that window means the
+ * window expired before the intervention was actually on board, so the days it was
+ * meant to protect are still in the analysis set.
+ *
+ * Anchoring properly requires a dose log, which the domain model does not yet carry;
+ * until it does, this reports the days where the assumption is known to be violated
+ * rather than letting them pass silently.
+ */
+export function onsetLagWarnings(
+  observations: Observation[],
+  phases: ProtocolPhase[],
+  onsetLagDays: number,
+): OnsetLagWarning[] {
+  if (onsetLagDays <= 0) return [];
+  const warnings: OnsetLagWarning[] = [];
+
+  for (const obs of observations) {
+    if (!obs.confounders.includes(MISSED_DOSE)) continue;
+    for (let i = 0; i < phases.length; i++) {
+      const p = phases[i]!;
+      if (p.phase !== "intervention") continue;
+      const fromStart = daysBetween(p.startDate, obs.date);
+      if (fromStart < 0 || fromStart >= onsetLagDays) continue;
+      warnings.push({
+        date: obs.date,
+        phaseIndex: i,
+        dayOfPhase: fromStart + 1,
+        onsetLagDays,
+      });
+    }
+  }
+  return warnings;
 }
 
 /** Dates that survive exclusion, per phase kind. A phases (baseline + withdrawal) pool downstream (§5.1). */

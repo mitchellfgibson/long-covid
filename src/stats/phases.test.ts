@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { analysisDates, assignPhases } from "./phases";
-import type { ProtocolPhase } from "../types";
+import { analysisDates, assignPhases, onsetLagWarnings } from "./phases";
+import { MISSED_DOSE } from "../confounders";
+import type { Observation, ProtocolPhase } from "../types";
 import { isoDates } from "./testutil";
 
 const phases: ProtocolPhase[] = [
@@ -60,5 +61,53 @@ describe("§8.8 phase exclusion", () => {
     const assigned = assignPhases(["2025-12-31", "2026-01-01"], phases, 0, 0);
     expect(assigned[0]!.phase).toBeNull();
     expect(assigned[1]!.phase).toBe("baseline");
+  });
+});
+
+describe("item 8: onset lag versus first dose", () => {
+  const obs = (date: string, confounders: string[] = []): Observation => ({
+    date,
+    values: { hrv: 50 },
+    confounders,
+  });
+
+  it("warns when a missed dose falls inside the onset window", () => {
+    const log = [
+      obs("2026-01-29", [MISSED_DOSE]),
+      obs("2026-01-30", [MISSED_DOSE]),
+      obs("2026-01-31"),
+      obs("2026-02-01"),
+    ];
+    const warnings = onsetLagWarnings(log, phases, 3);
+    expect(warnings).toHaveLength(2);
+    expect(warnings[0]).toEqual({
+      date: "2026-01-29",
+      phaseIndex: 1,
+      dayOfPhase: 1,
+      onsetLagDays: 3,
+    });
+    expect(warnings[1]!.dayOfPhase).toBe(2);
+  });
+
+  it("stays quiet when doses inside the window were taken", () => {
+    const log = [obs("2026-01-29"), obs("2026-01-30"), obs("2026-01-31")];
+    expect(onsetLagWarnings(log, phases, 3)).toEqual([]);
+  });
+
+  it("ignores missed doses after the onset window has closed", () => {
+    // Day 4 of the phase: the drug was already on board, so this is a sensitivity
+    // concern (§5.3), not an onset-anchoring problem.
+    const log = [obs("2026-02-01", [MISSED_DOSE])];
+    expect(onsetLagWarnings(log, phases, 3)).toEqual([]);
+  });
+
+  it("ignores missed doses outside the intervention phase", () => {
+    const log = [obs("2026-01-02", [MISSED_DOSE])];
+    expect(onsetLagWarnings(log, phases, 3)).toEqual([]);
+  });
+
+  it("has nothing to warn about when there is no onset lag", () => {
+    const log = [obs("2026-01-29", [MISSED_DOSE])];
+    expect(onsetLagWarnings(log, phases, 0)).toEqual([]);
   });
 });

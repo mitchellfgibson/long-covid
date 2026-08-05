@@ -5,3 +5,5 @@ export * from "./power";
 export * from "./phases";
 export * from "./canonical";
 export * from "./csv";
+export * from "./fdist";
+export * from "./version";

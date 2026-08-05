@@ -3,6 +3,172 @@
 Ambiguities in SPEC.md, resolved toward whichever option keeps the statistics honest.
 Milestone 1 only; each entry names the section it interprets.
 
+---
+
+# Review round 2
+
+Nine items from review. Items 1, 2, 5 and 6 were amended in SPEC.md itself so the
+spec and the code agree; the spec version went to **1.1.0** because several of these
+change numbers the code produces.
+
+## 1. The autocorrelation denominator was wrong (bug)
+
+**§3.2, amended in spec.** The numerator summed over the m pairs that were exactly one
+calendar day apart, but the denominator kept the full centered sum of squares over all
+n observations. That is the textbook form only when a single end-of-series pair is
+missing. Here the shortfall scales with the fraction of pairs the gaps eat, so the
+estimate was deflated by roughly m/n.
+
+Both sides are now normalized by their own counts. Measured on AR(1) with r=0.5,
+n=2000, over 60 deletion seeds: at 40 percent of days deleted the mean deviation from
+the full-series estimate is −0.0002 (sd 0.029), and at 60 percent it is +0.008
+(sd 0.053). The old form landed near −0.20 and −0.30 respectively. `decimation.test.ts`
+asserts the single-seed case at a 3-sd tolerance and, separately, that the mean
+deviation across 40 seeds stays under 0.02 — the single-seed check alone would pass or
+fail on the draw, so the bias assertion is the real regression guard.
+
+The consequence was the one the gap rule exists to prevent: understated carryover,
+overstated `n_eff`, an MDE about 35 percent too small, and a design that looks
+adequately powered when it is not.
+
+## 2. Sparse series get an estimate instead of nothing
+
+**§3.2, amended in spec.** A strictly every-other-day metric has no adjacent-day pairs
+at all, so the lag-1 estimator returned zero — indistinguishable in the output from a
+genuinely uncorrelated series, and anti-conservative in exactly the same way.
+
+Below 10 valid pairs the lag-1 estimator is now declined explicitly rather than being
+allowed to run on a thin numerator. The estimator falls through to the smallest lag k
+that does have 10 pairs and converts back under the AR(1) assumption the spec already
+makes, `r1 = r_k^(1/k)`. A non-positive `r_k` reports r1 = 0, since it has no
+meaningful k-th root.
+
+When no lag has enough pairs the result is reported as `insufficient`, not as zero. The
+CLI warns that `n_eff` assumes independence and therefore overstates precision. That
+case is honest about being uninformative rather than quietly optimistic.
+
+Verified end to end on a Mon/Wed/Fri series with zero adjacent-day pairs: true r = 0.5,
+recovered r1 = 0.526 at lag 2.
+
+## 3. `n_eff` uses the correlation at the observed spacing
+
+**Code only — see the open item at the end of this section.** `n * (1-r)/(1+r)` assumes
+r is the correlation between consecutive *observations*, but r1 is now per calendar day.
+For a series with median gap g, the correlation from one reading to the next is `r1^g`,
+not `r1`. `n_eff` is computed from `r_eff = r1^g` over the observation count.
+
+The same correction runs through §3.4. The inversion solves for the number of
+*observations* needed, then converts to calendar days using an adherence rate the user
+declares (`--adherence`, defaulting to the rate observed in the baseline). A
+three-day-a-week user is told 91 days and 39 readings, where the old code would have
+said 39 days — a figure that silently assumed daily adherence and was wrong by a factor
+of the adherence rate.
+
+Sparser sampling means each reading carries more independent information, so fewer are
+needed, but they span far more calendar time. Both numbers are reported because the
+user schedules in days and the statistics run in readings.
+
+**Open item:** §3.2's `n_eff` line and §3.4's `n2_days` conversion in SPEC.md still read
+in terms of `r1` rather than `r_eff`, so the spec and code now disagree there. Amending
+for item 3 was outside the instruction to amend items 1, 2, 5 and 6, so the spec was
+left alone. It should probably be amended too.
+
+## 4. Decimation tests
+
+**Tests only.** `decimation.test.ts` covers both new cases: recovery of the full-series
+r1 after deleting a random 40 percent of days at a fixed seed, and a daily series and an
+every-other-day series drawn from the same process reporting the same per-day r1 but
+different `n_eff` — 2000 readings at r_eff 0.5 giving about n/3, against 1000 readings at
+r_eff 0.25 giving about 0.6n. Half the readings, each worth more.
+
+## 5. The day-of-week fit is gated, and the threshold is 28
+
+**§3.1, amended in spec.** Threshold raised from 21 to 28, so a weekday mean rests on
+four observations rather than three, and the subtraction now requires a one-way F test
+across weekdays to reject at p < 0.10. On failure `dowOffsets` is null and the reason is
+reported rather than left silent — the result distinguishes "not tested, too few
+observations" from "tested, no weekly pattern."
+
+An unconditional fit always removes something. Whatever it removes leaves the residuals
+and is credited to signal, shrinking sigma and inflating power. Under-correcting is
+conservative; over-correcting is not.
+
+Two implementation choices worth recording. The F test runs on preliminary linear-trend
+residuals rather than raw values, because a drifting baseline inflates within-weekday
+variance and would mask a real weekly pattern, and because with unevenly sampled
+weekdays the drift leaks into the weekday means themselves. Empty weekday groups are
+dropped from the test rather than contributing zero-width cells, so a user who never
+records on Sundays is tested on the six weekdays they do record.
+
+The F distribution is computed from a Lanczos log-gamma and a continued-fraction
+regularized incomplete beta. Both are verified in `fdist.test.ts` against the closed
+form available at d1 = 2, the analytic value of F(1,1), and independent Simpson
+integration of the beta density, which agreed to 13 significant figures.
+
+The effect is visible on the sample data: sigma rose from 6.162 to 6.298 and the MDE
+from 5.835 to 6.336 once the gate declined to fit weekday noise at p = 0.957. The old
+number was better-looking and wrong.
+
+## 6. `specVersion` is inside the hashed object
+
+**§1 and new §5.5, amended in spec.** The field was missing entirely. It now sits inside
+`Protocol`, so `canonicalJson` covers it and changing it changes the hash — a protocol
+cannot be quietly re-attributed to a different set of statistical rules after locking.
+
+`requireSpecVersion` refuses by default and names both versions; `allowMismatch` returns
+the warning text rather than a boolean, so a caller cannot take the escape hatch without
+having something to display. A missing or empty version is treated as unverifiable
+rather than as current, since protocols predating version tracking cannot be checked.
+
+## 7. Duplicate dates stop rather than average
+
+**Code only.** Rows sharing a date still merge across *different* metrics. The same
+metric twice with the same value is accepted as a harmless repeat. The same metric with
+two different values now throws `DuplicateValueError` carrying every conflict, sorted,
+so the user resolves them in one pass instead of one per run.
+
+Averaging would invent a number the user never recorded and would then feed it to sigma,
+r1 and every downstream count as though it had been observed. This is the same posture
+§2 already takes toward an ambiguous date column: stop and ask.
+
+## 8. Onset lag versus first dose
+
+**Code only, partial.** `onsetLagDays` anchors to the phase start date, but the
+pharmacological clock starts at the first dose. A user who misses the first two doses has
+an exclusion window that expires before the intervention is on board, leaving days in the
+analysis set that the window existed to remove.
+
+Anchoring properly needs a dose log, which the domain model does not carry — §1 has no
+dose-event type, and adding one is a model change beyond this round. `onsetLagWarnings`
+reports every missed-dose confounder falling inside an onset window, with the day of the
+phase it landed on, so the violated assumption is visible rather than silent. Missed
+doses after the window closes are left to the §5.3 sensitivity re-run, which is where
+they belong.
+
+## 9. Verdict-report additions
+
+**CLI only.** Three changes.
+
+The `n_eff` floor of 2 now reports itself. When it binds, the MDE is built on a count
+that was clamped rather than measured, so the number is not meaningful; the CLI says so
+for both the baseline and the planned intervention phase instead of printing a
+confident figure.
+
+The infeasible verdict reports both levers, not one. Alongside the extra baseline days,
+it now states the MCID at which the current design becomes feasible — which is the
+current MDE, since declaring an MCID at or above it makes the same design adequate. A
+user staring at "646 more baseline days" deserves to know that accepting a 6.34 ms
+threshold instead of 1 ms is the other way through.
+
+Every report closes with the caveat that planning sigma is the baseline's noise and
+assumes the intervention phase is equally noisy. Treatments often make day-to-day
+variation worse rather than better, which biases the MDE optimistic in the one direction
+that matters, and is a reason to declare the MCID conservatively.
+
+---
+
+# Round 1
+
 ## Time is measured in calendar days, never in row counts
 
 **§3.1, §5.1.** Missing days are allowed and are absent rows, so "day index" and

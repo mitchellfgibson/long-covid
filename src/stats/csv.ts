@@ -122,9 +122,35 @@ export interface ColumnMapping {
   metricColumns: Record<string, string>;
 }
 
+export interface ValueConflict {
+  date: string;
+  metricId: string;
+  values: number[];
+}
+
+/**
+ * §2-adjacent: two different readings for one metric on one day. Averaging them
+ * would invent a number the user never recorded, so this stops and asks, exactly
+ * as an ambiguous date column does.
+ */
+export class DuplicateValueError extends Error {
+  readonly conflicts: ValueConflict[];
+  constructor(conflicts: ValueConflict[]) {
+    const first = conflicts[0]!;
+    super(
+      `${conflicts.length} date(s) carry more than one value for the same metric, ` +
+        `starting with ${first.date} (${first.metricId}: ${first.values.join(", ")}). ` +
+        `Pick which reading to keep — these are not averaged.`,
+    );
+    this.name = "DuplicateValueError";
+    this.conflicts = conflicts;
+  }
+}
+
 /**
  * Apply a saved column mapping to parsed CSV rows. Blank and non-numeric cells
- * become absent values, never zeros.
+ * become absent values, never zeros. Rows sharing a date merge across *different*
+ * metrics; the same metric twice with different values is a conflict, not a merge.
  */
 export function rowsToObservations(rows: string[][], mapping: ColumnMapping): Observation[] {
   const header = rows[0];
@@ -140,6 +166,8 @@ export function rowsToObservations(rows: string[][], mapping: ColumnMapping): Ob
   }
 
   const byDate = new Map<string, Observation>();
+  const seen = new Map<string, ValueConflict>();
+
   for (const row of rows.slice(1)) {
     const rawDate = row[dateIdx];
     if (rawDate === undefined || rawDate.trim() === "") continue;
@@ -150,9 +178,24 @@ export function rowsToObservations(rows: string[][], mapping: ColumnMapping): Ob
       if (cell === "") continue;
       const v = Number(cell);
       if (!Number.isFinite(v)) continue;
+
+      const key = `${date} ${metricId}`;
+      const prior = seen.get(key);
+      if (prior === undefined) {
+        seen.set(key, { date, metricId, values: [v] });
+      } else if (!prior.values.includes(v)) {
+        prior.values.push(v); // a repeat of the same reading is harmless; a different one is not
+      }
       obs.values[metricId] = v;
     }
     byDate.set(date, obs);
   }
+
+  const conflicts = [...seen.values()].filter((c) => c.values.length > 1);
+  if (conflicts.length > 0) {
+    conflicts.sort((a, b) => a.date.localeCompare(b.date) || a.metricId.localeCompare(b.metricId));
+    throw new DuplicateValueError(conflicts);
+  }
+
   return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
 }
