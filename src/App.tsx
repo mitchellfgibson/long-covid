@@ -31,7 +31,7 @@ function Shell() {
     const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = `runsheet-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `pipeline-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(a.href);
   }
@@ -41,14 +41,14 @@ function Shell() {
       const parsed = JSON.parse(await file.text()) as AppState;
       dispatch({ type: "replaceAll", state: parsed });
     } catch {
-      window.alert("That file could not be read as a Runsheet export.");
+      window.alert("That file could not be read as a Pipeline export.");
     }
   }
 
   return (
     <div className="shell">
       <header className="masthead">
-        <h1>RUNSHEET</h1>
+        <h1>PIPELINE</h1>
         <span className="tagline">
           Lock the decision rule before you see the data.
         </span>
@@ -127,7 +127,7 @@ function Shell() {
       </main>
 
       <footer className="safety">
-        Runsheet does not give medical advice and does not recommend treatments. Talk to your
+        Pipeline does not give medical advice and does not recommend treatments. Talk to your
         clinician before starting or stopping anything. Everything you enter stays on this device.
       </footer>
     </div>

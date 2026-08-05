@@ -101,7 +101,7 @@ export function Import() {
       <section>
         <h2>Two readings, one day</h2>
         <p>
-          These dates carry more than one value for the same metric. Runsheet will not average them,
+          These dates carry more than one value for the same metric. Pipeline will not average them,
           because the average is a number you never recorded. Decide which reading is right, correct
           the file, and import it again.
         </p>
@@ -141,7 +141,7 @@ export function Import() {
       <section className="stack">
         <h2>Map the columns</h2>
         <p>
-          Runsheet does not assume any device's column names. Tell it which column is the date and
+          Pipeline does not assume any device's column names. Tell it which column is the date and
           which columns are metrics worth tracking. It remembers this for next time.
         </p>
 
@@ -162,7 +162,7 @@ export function Import() {
             <div className="warn">
               <strong>Which comes first, the month or the day?</strong>
               These dates could be read either way, and guessing would silently move readings by up
-              to eleven months. Tell Runsheet which is right.
+              to eleven months. Tell Pipeline which is right.
               <div className="row" style={{ marginTop: "0.6rem" }}>
                 <button
                   className={dateFormat === "mdy" ? "" : "secondary"}
@@ -184,7 +184,7 @@ export function Import() {
           {unparseable && (
             <div className="warn">
               <strong>Those dates aren't readable.</strong>
-              Runsheet understands YYYY-MM-DD and MM/DD/YYYY. Reformat the date column and try again.
+              Pipeline understands YYYY-MM-DD and MM/DD/YYYY. Reformat the date column and try again.
             </div>
           )}
 

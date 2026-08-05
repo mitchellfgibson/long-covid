@@ -1,4 +1,4 @@
-# Runsheet — build spec
+# Pipeline — build spec
 
 **Spec version: 1.2.0.** Protocols carry the version they were locked under (§1), and the analysis path checks it (§5.5). Bump the minor version whenever a change here alters a number the code produces; bump the patch version for wording.
 

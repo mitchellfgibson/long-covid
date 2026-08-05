@@ -193,7 +193,7 @@ export function Builder({ onLocked }: { onLocked: () => void }) {
                 })
               }
             />
-            <p className="hint">Your words. Runsheet never suggests or checks a dose.</p>
+            <p className="hint">Your words. Pipeline never suggests or checks a dose.</p>
           </div>
           <div className="field" style={{ flex: "1 1 10rem" }}>
             <label htmlFor="sched">Schedule</label>
@@ -351,7 +351,7 @@ export function Builder({ onLocked }: { onLocked: () => void }) {
       <div className="card">
         <h3>Stopping rule</h3>
         <p className="hint" style={{ marginBottom: "0.8rem" }}>
-          Runsheet writes the sentence, not you. A generated rule cannot drift away from the rule the
+          Pipeline writes the sentence, not you. A generated rule cannot drift away from the rule the
           analysis actually enforces.
         </p>
 
@@ -395,7 +395,7 @@ export function Builder({ onLocked }: { onLocked: () => void }) {
           <div className="warn">
             <strong>Stopping early when it looks good inflates your false-positive rate.</strong>
             Every extra peek is another chance for noise to cross your line, so a rule that lets you
-            stop at the first good-looking moment finds "effects" more often than it should. Runsheet
+            stop at the first good-looking moment finds "effects" more often than it should. Pipeline
             will not quietly shrink your alpha to compensate — that trade is yours to make knowingly.
             A futility gate costs you almost nothing by comparison.
             <label style={{ fontWeight: 400, marginTop: "0.7rem" }}>

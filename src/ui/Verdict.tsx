@@ -69,7 +69,7 @@ export function Verdict() {
     <section className="stack">
       <h2>Can this experiment answer your question?</h2>
       <p>
-        Before you start, Runsheet checks whether the change you care about is even visible through
+        Before you start, Pipeline checks whether the change you care about is even visible through
         your own day-to-day noise. This is the screen the whole tool exists for.
       </p>
 

@@ -170,7 +170,7 @@ export function Sheet({ justLocked = false }: { justLocked?: boolean }) {
             paddingTop: "0.7rem",
           }}
         >
-          Runsheet does not give medical advice and does not recommend treatments. Talk to your
+          Pipeline does not give medical advice and does not recommend treatments. Talk to your
           clinician before starting or stopping anything.
         </p>
       </article>

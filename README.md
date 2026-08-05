@@ -1,4 +1,4 @@
-# Runsheet
+# Pipeline
 
 An n=1 experiment designer and analyzer for people running self-experiments on chronic
 conditions. The thesis: **the value is in locking the decision rule before you see the data.**
@@ -65,5 +65,5 @@ newest round first — including the ones where the spec itself turned out to be
 
 ---
 
-Runsheet does not give medical advice and does not recommend treatments. Talk to your
+Pipeline does not give medical advice and does not recommend treatments. Talk to your
 clinician before starting or stopping anything.

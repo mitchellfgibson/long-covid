@@ -142,7 +142,7 @@ function main(): void {
   const span = `${series[0]!.date} to ${series[series.length - 1]!.date}`;
 
   console.log(`
-  RUNSHEET — power report
+  PIPELINE — power report
   ${"-".repeat(58)}
   file        ${args.file}
   metric      ${args.metric}

@@ -2,7 +2,7 @@
 import { describe, expect, it, afterEach, beforeEach } from "vitest";
 import { cleanup, render, screen, fireEvent } from "@testing-library/react";
 import App from "../App";
-import { reducer, initialState, type AppState } from "../state/store";
+import { reducer, initialState, loadState, type AppState } from "../state/store";
 import { derivePhases } from "./Builder";
 import type { Observation } from "../types";
 import { gaussian, isoDates, mulberry32 } from "../stats/testutil";
@@ -39,7 +39,7 @@ afterEach(cleanup);
 describe("the app renders", () => {
   it("boots to the data step with the safety line always present", () => {
     render(<App />);
-    expect(screen.getByText("RUNSHEET")).toBeDefined();
+    expect(screen.getByText("PIPELINE")).toBeDefined();
     expect(screen.getByText(/does not give medical advice/i)).toBeDefined();
     expect(screen.getByRole("heading", { name: /bring in your data/i })).toBeDefined();
   });
@@ -64,7 +64,7 @@ describe("the app renders", () => {
       metrics: [{ id: "hrv", label: "HRV", unit: "ms", direction: "higher_is_better" }],
       draft: { primaryMetricId: "hrv", mcid: 3 },
     };
-    localStorage.setItem("runsheet.v1", JSON.stringify(seeded));
+    localStorage.setItem("pipeline.v1", JSON.stringify(seeded));
 
     render(<App />);
     fireEvent.click(screen.getByRole("button", { name: /Can it work\?/ }));
@@ -72,6 +72,27 @@ describe("the app renders", () => {
     expect(screen.getByRole("heading", { name: /Can this experiment answer/i })).toBeDefined();
     // A 3 ms threshold against ~6 ms of noise over 30 days cannot be adequate.
     expect(screen.getByText(/Underpowered|Infeasible/)).toBeDefined();
+  });
+});
+
+describe("the rename does not orphan existing data", () => {
+  it("reads state saved under the pre-rename key", () => {
+    const seeded: AppState = {
+      ...initialState,
+      observations: [{ date: "2026-01-01", values: { hrv: 61 }, confounders: [] }],
+      metrics: [{ id: "hrv", label: "HRV", unit: "ms", direction: "higher_is_better" }],
+    };
+    localStorage.setItem("runsheet.v1", JSON.stringify(seeded));
+
+    render(<App />);
+    // The old key's data is present, so the power step is reachable.
+    expect(screen.getByRole("button", { name: /Can it work\?/ })).toHaveProperty("disabled", false);
+  });
+
+  it("prefers the current key when both exist", () => {
+    localStorage.setItem("runsheet.v1", JSON.stringify({ ...initialState, plannedInterventionDays: 11 }));
+    localStorage.setItem("pipeline.v1", JSON.stringify({ ...initialState, plannedInterventionDays: 44 }));
+    expect(loadState().plannedInterventionDays).toBe(44);
   });
 });
 
