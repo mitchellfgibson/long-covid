@@ -38,8 +38,6 @@ export interface AppState {
 }
 
 export const STORAGE_KEY = "pipeline.v1";
-/** The key used before the product was renamed. Read once, never written. */
-export const LEGACY_STORAGE_KEY = "runsheet.v1";
 
 export const initialState: AppState = {
   metrics: [],
@@ -148,10 +146,7 @@ function mergeMetrics(existing: Metric[], incoming: Metric[]): Metric[] {
 
 export function loadState(): AppState {
   try {
-    // Fall back to the pre-rename key so a rename never silently drops someone's
-    // data. The old entry is left in place rather than deleted; the next save
-    // writes the new key, and nothing is destroyed if this build is rolled back.
-    const raw = localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem(LEGACY_STORAGE_KEY);
+    const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return initialState;
     const parsed = JSON.parse(raw) as Partial<AppState>;
     return { ...initialState, ...parsed };

@@ -75,24 +75,18 @@ describe("the app renders", () => {
   });
 });
 
-describe("the rename does not orphan existing data", () => {
-  it("reads state saved under the pre-rename key", () => {
-    const seeded: AppState = {
-      ...initialState,
-      observations: [{ date: "2026-01-01", values: { hrv: 61 }, confounders: [] }],
-      metrics: [{ id: "hrv", label: "HRV", unit: "ms", direction: "higher_is_better" }],
-    };
-    localStorage.setItem("runsheet.v1", JSON.stringify(seeded));
-
-    render(<App />);
-    // The old key's data is present, so the power step is reachable.
-    expect(screen.getByRole("button", { name: /Can it work\?/ })).toHaveProperty("disabled", false);
+describe("persistence", () => {
+  it("loads state from the pipeline key", () => {
+    localStorage.setItem(
+      "pipeline.v1",
+      JSON.stringify({ ...initialState, plannedInterventionDays: 44 }),
+    );
+    expect(loadState().plannedInterventionDays).toBe(44);
   });
 
-  it("prefers the current key when both exist", () => {
-    localStorage.setItem("runsheet.v1", JSON.stringify({ ...initialState, plannedInterventionDays: 11 }));
-    localStorage.setItem("pipeline.v1", JSON.stringify({ ...initialState, plannedInterventionDays: 44 }));
-    expect(loadState().plannedInterventionDays).toBe(44);
+  it("falls back to defaults rather than throwing on unreadable storage", () => {
+    localStorage.setItem("pipeline.v1", "{ not json");
+    expect(loadState()).toEqual(initialState);
   });
 });
 
