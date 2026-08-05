@@ -49,9 +49,7 @@ function Shell() {
     <div className="shell">
       <header className="masthead">
         <h1>PIPELINE</h1>
-        <span className="tagline">
-          Lock the decision rule before you see the data.
-        </span>
+        <span className="tagline">data backed exploration</span>
         <span style={{ marginLeft: "auto" }} className="row no-print">
           <button className="quiet" onClick={exportJson}>
             Export
@@ -126,10 +124,7 @@ function Shell() {
         {tab === "assist" && <Assist />}
       </main>
 
-      <footer className="safety">
-        Pipeline does not give medical advice and does not recommend treatments. Talk to your
-        clinician before starting or stopping anything. Everything you enter stays on this device.
-      </footer>
+      <footer className="safety">just a test</footer>
     </div>
   );
 }

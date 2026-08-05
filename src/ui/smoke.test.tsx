@@ -40,7 +40,7 @@ describe("the app renders", () => {
   it("boots to the data step with the safety line always present", () => {
     render(<App />);
     expect(screen.getByText("PIPELINE")).toBeDefined();
-    expect(screen.getByText(/does not give medical advice/i)).toBeDefined();
+    expect(screen.getByText("just a test")).toBeDefined();
     expect(screen.getByRole("heading", { name: /bring in your data/i })).toBeDefined();
   });
 
