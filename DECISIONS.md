@@ -5,6 +5,107 @@ Milestone 1 only; each entry names the section it interprets.
 
 ---
 
+# Round 3 — milestones 2 through 5
+
+The spec debts from round 2 are cleared, §5.2 is built, and the app exists.
+Spec version moved to **1.2.0**: the domain model changed and phase exclusion
+now produces different day sets, so it is not a wording-only bump.
+
+## SPEC.md now lives in the repo
+
+Round 2 left the spec in `~/Downloads` while `specVersion` inside the protocol
+hash pointed at it. A fingerprint whose referent is untracked proves less than it
+appears to, so the document is now committed alongside the code that implements it.
+
+## §3.2 and §3.4 amended for `r_eff`
+
+The open item from round 2. `n_eff`'s formula in the spec still read in terms of
+the per-day `r1`; it now reads in terms of `r_eff = r1^g` over the observation
+count, and §3.4 solves for readings before converting to calendar days through the
+declared adherence rate. Spec and code agree again.
+
+## Onset lag anchors to the first dose (item 8, completed)
+
+Round 2 left this partial because the domain model had nowhere to record a dose.
+`DoseRecord { date, taken }` is now a separate log rather than a field on
+`Observation`, for the same reason the spec keeps missing readings absent: an
+absent dose record means *unknown*, and folding it into the observation row would
+make "no reading that day" and "no dose that day" indistinguishable.
+
+Two consequences worth stating. The window counts forward from the earliest
+`taken: true` inside the phase, and days *before* that first dose are excluded as
+pre-treatment — they cannot inform the B mean, because the intervention was not on
+board. With no dose log the behaviour is unchanged from round 2, falling back to
+the phase start with a warning, so nothing already locked shifts underneath its
+hash without the version check catching it.
+
+## Acknowledgments moved inside the protocol
+
+§3.5 requires the underpowered acknowledgment to be "recorded in the protocol" and
+§4.4 says the same for efficacy gates, but the §1 interface had no field for
+either. Both now sit in `Protocol.acknowledgments`, inside the hash, and are
+non-optional so the canonical form stays deterministic. Without this the
+acknowledgment lived only in UI state and would not have survived export, which
+would have made the requirement decorative.
+
+## §5.2: Welch on effective counts
+
+The t distribution comes from the same regularized incomplete beta already written
+for the §3.1 F gate; `tCritical` bisects on the two-sided p-value rather than
+approximating with z, because `n_eff` is routinely small enough for the difference
+to matter. Welch-Satterthwaite runs on effective counts throughout, never raw n.
+
+Each phase is detrended before its sigma is taken, since a phase that drifts
+internally would otherwise inflate its own noise estimate and widen the interval
+for a reason that has nothing to do with the treatment.
+
+The verdict is stated against the MCID in the direction the user considers an
+improvement, so a `lower_is_better` metric that falls by more than the threshold
+reads as clearing it rather than failing it. The p-value is reported small, below
+the interval, and is never the headline.
+
+## The exploratory rule is time-based and unmissable
+
+`lookStatus` treats a look as pre-registered only when the final phase has ended or
+the date matches a declared gate exactly. Everything else is labelled exploratory
+with a reason naming both dates. The flag rides on the result object rather than
+being computed in the view, so it cannot be rendered without it.
+
+## Fonts are bundled, not fetched
+
+§6 asks for Spectral and IBM Plex; §0 permits exactly one outbound call, the
+optional LLM layer. A CDN font link would violate that on every page load, before
+the user has consented to anything. The families are installed as packages and
+bundled into `dist/`, so the built app makes no network request at all until a key
+is entered and a button pressed.
+
+## The LLM layer is structurally incapable of touching a number
+
+§7's rules are in the system prompt, but a prompt is a request, not a guarantee.
+The stronger constraint is the call surface: `clinicianSummary` is passed protocol
+fields only, and `suggestConfounders` is passed an intervention name and a metric
+label. Neither is given a mean, an interval, a p-value, or a verdict, so there is
+no statistic in scope for it to comment on even if the prompt were ignored
+entirely. The key is component state, never persisted, gone on reload.
+
+## Imports never silently overwrite typed values
+
+Not in the spec, decided here. When a CSV import lands on a date that already has
+a hand-entered reading, the existing value wins per metric and new metrics merge
+in alongside. A re-import that quietly replaced a corrected value with the original
+device export would undo deliberate work with no trace, which is the same class of
+harm as averaging duplicate readings.
+
+## A note on the test environment
+
+This Node exposes its own method-less `localStorage` global that shadows the one
+jsdom installs, so the UI tests install a real `Storage` before rendering. The app
+itself is unaffected — both storage accesses in the store are already guarded, and
+the app degrades to in-memory state with export still working if storage is blocked
+or full.
+
+---
+
 # Review round 2
 
 Nine items from review. Items 1, 2, 5 and 6 were amended in SPEC.md itself so the

@@ -71,6 +71,31 @@ export function fSurvival(f: number, d1: number, d2: number): number {
   return incompleteBeta(d2 / 2, d1 / 2, d2 / (d2 + d1 * f));
 }
 
+/** Two-sided p-value for Student's t on df degrees of freedom. */
+export function tTwoSided(t: number, df: number): number {
+  if (!Number.isFinite(t) || df <= 0) return 1;
+  return incompleteBeta(df / 2, 0.5, df / (df + t * t));
+}
+
+/**
+ * Critical value t such that P(|T| < t) = conf, by bisection on the two-sided
+ * p-value. Used for the §5.2 confidence interval, so it must be accurate rather
+ * than a normal approximation — n_eff is often small enough for the difference
+ * between t and z to matter.
+ */
+export function tCritical(conf: number, df: number): number {
+  if (df <= 0) throw new Error("tCritical: df must be positive");
+  const target = 1 - conf; // desired two-sided tail
+  let lo = 0;
+  let hi = 1000;
+  for (let i = 0; i < 200; i++) {
+    const mid = (lo + hi) / 2;
+    if (tTwoSided(mid, df) > target) lo = mid;
+    else hi = mid;
+  }
+  return (lo + hi) / 2;
+}
+
 export interface OneWayAnova {
   f: number;
   p: number;

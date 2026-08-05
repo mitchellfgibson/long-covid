@@ -7,3 +7,4 @@ export * from "./canonical";
 export * from "./csv";
 export * from "./fdist";
 export * from "./version";
+export * from "./analysis";

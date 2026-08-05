@@ -25,6 +25,7 @@ export function makeProtocol(overrides: Partial<Protocol> = {}): Protocol {
     stoppingRule: { kind: "none" },
     analysisPlan: "phase_means_neff",
     specVersion: SPEC_VERSION,
+    acknowledgments: { underpowered: false, efficacyGate: false },
     ...overrides,
   };
 }

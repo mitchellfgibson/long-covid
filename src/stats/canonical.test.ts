@@ -7,6 +7,7 @@ import type { Protocol } from "../types";
 /** Same values as makeProtocol, keys inserted in a scrambled order. */
 function scrambledProtocol(mcid: number): Protocol {
   const p = {
+    acknowledgments: { efficacyGate: false, underpowered: false }, // keys reversed too
     specVersion: SPEC_VERSION,
     analysisPlan: "phase_means_neff",
     stoppingRule: { kind: "none" },

@@ -1,7 +1,7 @@
 import type { Protocol } from "../types";
 
 /** The spec version this build implements. Must match SPEC.md's header. */
-export const SPEC_VERSION = "1.1.0";
+export const SPEC_VERSION = "1.2.0";
 
 export type VersionCheck =
   | { ok: true; version: string }

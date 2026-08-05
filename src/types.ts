@@ -7,6 +7,17 @@ export interface Observation {
   note?: string;
 }
 
+/**
+ * §5.1. One record per day the user says something about dosing. An absent date
+ * means "unknown", never "not taken" — the same rule observations follow. Recorded
+ * separately from Observation because a missed dose and a missed reading are
+ * different events with different consequences.
+ */
+export interface DoseRecord {
+  date: string; // ISO yyyy-mm-dd
+  taken: boolean;
+}
+
 export interface Metric {
   id: string;
   label: string; // "HRV"
@@ -38,6 +49,15 @@ export interface Protocol {
   stoppingRule: StoppingRule;
   analysisPlan: "phase_means_neff"; // only option in v1; exists so the hash covers it
   specVersion: string; // §5.5. Inside the hashed object, so the lock covers it.
+  /**
+   * §3.5 and §4.4 both require the user's acknowledgment to be recorded *in the
+   * protocol*, so both live inside the hash. Always present, never optional, so
+   * the canonical form is deterministic.
+   */
+  acknowledgments: {
+    underpowered: boolean; // proceeded knowing the design is underpowered (§3.5)
+    efficacyGate: boolean; // accepted the type I error cost of an efficacy gate (§4.4)
+  };
 }
 
 export type StoppingRule =
