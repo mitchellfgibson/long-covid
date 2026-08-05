@@ -61,58 +61,140 @@ export function parseCsv(text: string): string[][] {
   return rows;
 }
 
-export type DateFormat = "iso" | "mdy";
-
-const ISO = /^(\d{4})-(\d{2})-(\d{2})$/;
-const MDY = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
+/** Which way round an all-numeric date reads. Year-first and month-name forms need no choice. */
+export type DateFormat = "iso" | "mdy" | "dmy";
 
 /**
- * §2: support ISO and MM/DD/YYYY. Ambiguity is never guessed — a column whose
- * slash-dates could be either MM/DD or DD/MM is reported so the UI can ask.
+ * A trailing time is stripped, not parsed. Device exports carry timestamps
+ * ("2026-01-05T06:23:11-08:00"), and the day the reading belongs to is the date
+ * as the device wrote it. Converting through UTC would silently move a late-evening
+ * reading onto the next day for anyone west of Greenwich.
  */
-export function detectDateFormat(
-  samples: string[],
-): { kind: "iso" } | { kind: "mdy" } | { kind: "ambiguous" } | { kind: "unparseable" } {
-  let iso = 0;
-  let slash = 0;
-  let ambiguous = false;
-  let mdyOnly = false;
+const TIME_TAIL = String.raw`(?:[T ][\d:.]+(?:\s?[A-Za-z]{1,4})?(?:\s?[+-]\d{2}:?\d{2}|Z)?)?`;
 
-  for (const raw of samples) {
-    const s = raw.trim();
-    if (s === "") continue;
-    if (ISO.test(s)) {
-      iso++;
-      continue;
-    }
-    const m = MDY.exec(s);
-    if (!m) return { kind: "unparseable" };
-    slash++;
-    const a = Number(m[1]);
-    const b = Number(m[2]);
-    if (a > 12) return { kind: "unparseable" }; // not MM/DD/YYYY at all
-    if (b > 12) mdyOnly = true; // second field can only be a day
-    else ambiguous = true; // both fields <= 12: could be DD/MM
+const YEAR_FIRST = new RegExp(String.raw`^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})${TIME_TAIL}$`);
+const NUMERIC = new RegExp(String.raw`^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})${TIME_TAIL}$`);
+const DAY_MONTH_NAME = new RegExp(
+  String.raw`^(\d{1,2})[ -]([A-Za-z]{3,9})\.?[ -,]+(\d{4})${TIME_TAIL}$`,
+);
+const MONTH_NAME_DAY = new RegExp(
+  String.raw`^([A-Za-z]{3,9})\.?[ -]+(\d{1,2})(?:st|nd|rd|th)?,?[ -]+(\d{4})${TIME_TAIL}$`,
+);
+
+const MONTHS = [
+  "jan", "feb", "mar", "apr", "may", "jun",
+  "jul", "aug", "sep", "oct", "nov", "dec",
+];
+
+function monthFromName(name: string): number | null {
+  const i = MONTHS.indexOf(name.slice(0, 3).toLowerCase());
+  return i < 0 ? null : i + 1;
+}
+
+/** Rejects impossible dates like 2026-02-30 rather than letting Date roll them over. */
+function iso(year: number, month: number, day: number): string | null {
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  const s = `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  const t = Date.parse(`${s}T00:00:00Z`);
+  if (Number.isNaN(t)) return null;
+  return new Date(t).toISOString().slice(0, 10) === s ? s : null;
+}
+
+type Shape =
+  | { kind: "unambiguous"; date: string }
+  | { kind: "numeric"; a: number; b: number; year: number }
+  | { kind: "unreadable" };
+
+/** Classify one cell without deciding the day/month order. */
+function shapeOf(raw: string): Shape {
+  const s = raw.trim();
+  if (s === "") return { kind: "unreadable" };
+
+  const y = YEAR_FIRST.exec(s);
+  if (y) {
+    const date = iso(Number(y[1]), Number(y[2]), Number(y[3]));
+    return date ? { kind: "unambiguous", date } : { kind: "unreadable" };
   }
 
-  if (slash === 0 && iso > 0) return { kind: "iso" };
-  if (slash > 0 && iso > 0) return { kind: "ambiguous" }; // mixed formats in one column
-  if (mdyOnly) return { kind: "mdy" };
-  if (ambiguous) return { kind: "ambiguous" };
-  return { kind: "unparseable" };
+  for (const [re, order] of [
+    [DAY_MONTH_NAME, "dm"],
+    [MONTH_NAME_DAY, "md"],
+  ] as const) {
+    const m = re.exec(s);
+    if (!m) continue;
+    const month = monthFromName(order === "dm" ? m[2]! : m[1]!);
+    const day = Number(order === "dm" ? m[1] : m[2]);
+    if (month === null) return { kind: "unreadable" };
+    const date = iso(Number(m[3]), month, day);
+    return date ? { kind: "unambiguous", date } : { kind: "unreadable" };
+  }
+
+  const n = NUMERIC.exec(s);
+  if (n) return { kind: "numeric", a: Number(n[1]), b: Number(n[2]), year: Number(n[3]) };
+
+  return { kind: "unreadable" };
+}
+
+export type DateDetection =
+  | { kind: "iso" } // year-first or month-name: no choice needed
+  | { kind: "mdy" }
+  | { kind: "dmy" }
+  | { kind: "ambiguous" }
+  | { kind: "unparseable"; samples: string[] };
+
+/**
+ * §2: never guess. A column whose numeric dates could read either way is reported
+ * ambiguous so the UI can ask. Unreadable values are reported *with examples* — a
+ * bare "reformat the column" leaves the user with nothing to act on.
+ *
+ * A minority of unreadable rows no longer condemns the column: real exports carry
+ * blank rows, footers and summary lines, and one of them should not make an
+ * otherwise valid date column unusable.
+ */
+export function detectDateFormat(samples: string[]): DateDetection {
+  const bad: string[] = [];
+  let unambiguous = 0;
+  let numeric = 0;
+  let firstOver12 = false; // first field > 12, so it can only be a day
+  let secondOver12 = false; // second field > 12, so it can only be a day
+
+  for (const raw of samples) {
+    if (raw.trim() === "") continue;
+    const shape = shapeOf(raw);
+    if (shape.kind === "unreadable") {
+      if (bad.length < 5) bad.push(raw.trim());
+      continue;
+    }
+    if (shape.kind === "unambiguous") {
+      unambiguous++;
+      continue;
+    }
+    numeric++;
+    if (shape.a > 12) firstOver12 = true;
+    if (shape.b > 12) secondOver12 = true;
+  }
+
+  const good = unambiguous + numeric;
+  // Tolerate a minority of junk rows, but not a column that is mostly unreadable.
+  if (good === 0 || bad.length > good) return { kind: "unparseable", samples: bad };
+
+  if (firstOver12 && secondOver12) return { kind: "unparseable", samples: bad };
+  if (numeric === 0) return { kind: "iso" };
+  if (firstOver12) return { kind: "dmy" };
+  if (secondOver12) return { kind: "mdy" };
+  return { kind: "ambiguous" }; // every numeric field <= 12: genuinely undecidable
 }
 
 export function normalizeDate(raw: string, format: DateFormat): string {
-  const s = raw.trim();
-  if (format === "iso") {
-    const m = ISO.exec(s);
-    if (!m) throw new Error(`not an ISO date: "${raw}"`);
-    return s;
-  }
-  const m = MDY.exec(s);
-  if (!m) throw new Error(`not MM/DD/YYYY: "${raw}"`);
-  const [, mm, dd, yyyy] = m;
-  return `${yyyy}-${mm!.padStart(2, "0")}-${dd!.padStart(2, "0")}`;
+  const shape = shapeOf(raw);
+  if (shape.kind === "unambiguous") return shape.date;
+  if (shape.kind === "unreadable") throw new Error(`could not read "${raw}" as a date`);
+
+  const month = format === "dmy" ? shape.b : shape.a;
+  const day = format === "dmy" ? shape.a : shape.b;
+  const date = iso(shape.year, month, day);
+  if (!date) throw new Error(`"${raw}" is not a real date read as ${format === "dmy" ? "D/M/Y" : "M/D/Y"}`);
+  return date;
 }
 
 export interface ColumnMapping {

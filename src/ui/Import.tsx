@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import {
   DuplicateValueError,
   detectDateFormat,
+  normalizeDate,
   parseCsv,
   rowsToObservations,
   type DateFormat,
@@ -40,6 +41,25 @@ export function Import() {
     return detectDateFormat(stage.rows.slice(1, 60).map((r) => r[idx] ?? ""));
   }, [stage, dateColumn, header]);
 
+  const resolvedFormat: DateFormat | "" =
+    dateFormat ||
+    (detected?.kind === "iso" || detected?.kind === "mdy" || detected?.kind === "dmy"
+      ? detected.kind
+      : "");
+
+  /** Show one real value and what it will become, so a wrong reading is visible before import. */
+  const sampleDate = useMemo(() => {
+    if (stage.kind !== "mapping" || !dateColumn || !resolvedFormat) return null;
+    const idx = header.indexOf(dateColumn);
+    const raw = stage.rows.slice(1).map((r) => r[idx] ?? "").find((v) => v.trim() !== "");
+    if (!raw) return null;
+    try {
+      return { raw: raw.trim(), parsed: normalizeDate(raw, resolvedFormat) };
+    } catch {
+      return null;
+    }
+  }, [stage, dateColumn, header, resolvedFormat]);
+
   async function onFile(file: File) {
     setError(null);
     const rows = parseCsv(await file.text());
@@ -65,7 +85,7 @@ export function Import() {
 
   function commit() {
     if (stage.kind !== "mapping") return;
-    const fmt = dateFormat || (detected?.kind === "iso" || detected?.kind === "mdy" ? detected.kind : "");
+    const fmt = resolvedFormat;
     if (!dateColumn || !fmt) return;
 
     const metricColumns: Record<string, string> = {};
@@ -135,7 +155,7 @@ export function Import() {
   if (stage.kind === "mapping") {
     const ambiguous = detected?.kind === "ambiguous";
     const unparseable = detected?.kind === "unparseable";
-    const ready = Boolean(dateColumn) && (Boolean(dateFormat) || detected?.kind === "iso" || detected?.kind === "mdy");
+    const ready = Boolean(dateColumn) && Boolean(resolvedFormat);
 
     return (
       <section className="stack">
@@ -161,21 +181,21 @@ export function Import() {
           {ambiguous && (
             <div className="warn">
               <strong>Which comes first, the month or the day?</strong>
-              These dates could be read either way, and guessing would silently move readings by up
-              to eleven months. Tell Pipeline which is right.
+              Every value in this column has both numbers at 12 or below, so it reads either way.
+              Guessing would silently move readings by up to eleven months. Tell Pipeline which is
+              right.
               <div className="row" style={{ marginTop: "0.6rem" }}>
                 <button
                   className={dateFormat === "mdy" ? "" : "secondary"}
                   onClick={() => setDateFormat("mdy")}
                 >
-                  Month first (03/04 = 4 March)
+                  Month first — 03/04 is 4 March
                 </button>
                 <button
-                  className={dateFormat === "iso" ? "" : "secondary"}
-                  onClick={() => setDateFormat("iso")}
-                  disabled
+                  className={dateFormat === "dmy" ? "" : "secondary"}
+                  onClick={() => setDateFormat("dmy")}
                 >
-                  Day first — not supported yet
+                  Day first — 03/04 is 3 April
                 </button>
               </div>
             </div>
@@ -184,13 +204,42 @@ export function Import() {
           {unparseable && (
             <div className="warn">
               <strong>Those dates aren't readable.</strong>
-              Pipeline understands YYYY-MM-DD and MM/DD/YYYY. Reformat the date column and try again.
+              {detected?.kind === "unparseable" && detected.samples.length > 0 && (
+                <div style={{ margin: "0.4rem 0" }}>
+                  Pipeline saw{" "}
+                  {detected.samples.map((s, i) => (
+                    <span key={i}>
+                      {i > 0 && ", "}
+                      <span className="mono">"{s}"</span>
+                    </span>
+                  ))}
+                  .
+                </div>
+              )}
+              It reads year-first dates (<span className="mono">2026-01-05</span>), day/month/year
+              with slashes, dots or dashes, and month names (
+              <span className="mono">5 Jan 2026</span>). A trailing time is fine and gets ignored.
+              Two-digit years are not accepted, because the century would be a guess.
             </div>
           )}
 
           {detected && !ambiguous && !unparseable && (
             <p className="hint">
-              Dates read as <span className="mono">{detected.kind === "iso" ? "YYYY-MM-DD" : "MM/DD/YYYY"}</span>.
+              Dates read as{" "}
+              <span className="mono">
+                {detected.kind === "iso"
+                  ? "year first"
+                  : detected.kind === "dmy"
+                    ? "day/month/year"
+                    : "month/day/year"}
+              </span>
+              {sampleDate && (
+                <>
+                  {" "}
+                  — <span className="mono">{sampleDate.raw}</span> reads as{" "}
+                  <span className="mono">{sampleDate.parsed}</span>.
+                </>
+              )}
             </p>
           )}
         </div>
