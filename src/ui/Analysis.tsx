@@ -64,8 +64,7 @@ export function Analysis() {
         <h2>Analysis</h2>
         <div className="empty">
           <p style={{ margin: 0 }}>
-            Nothing to analyze yet. Lock a protocol first — that is what makes the result mean
-            something.
+            Nothing to analyze yet. Lock a protocol first.
           </p>
         </div>
       </section>
@@ -98,8 +97,8 @@ export function Analysis() {
               <div className="exploratory">
                 <div className="label">Exploratory</div>
                 <p style={{ margin: "0.3rem 0 0" }}>
-                  {result.exploratoryReason} Anything below is a look you did not pre-register.
-                  Treat it as a hypothesis, not a result, and say so if you report it.
+                  {result.exploratoryReason} You didn't pre-register this look. Treat what's below
+                  as a hunch, not a result, and say so if you show it to anyone.
                 </p>
               </div>
             )}
@@ -110,18 +109,18 @@ export function Analysis() {
                   {amendments} amendment{amendments > 1 ? "s" : ""} to this protocol.
                 </strong>
                 {amendedAfterStart
-                  ? "At least one was made after the intervention began. That is permanent, and it weakens the pre-registration."
-                  : "All were made before the intervention began."}
+                  ? "At least one came after the treatment started. That's permanent, and it weakens the pre-registration."
+                  : "All before the treatment started."}
               </div>
             )}
 
             {doseWarnings.length > 0 && (
               <div className="warn">
                 <strong>Missed doses inside the onset window.</strong>
-                {doseWarnings.length} day(s) flagged as a missed dose fall within the{" "}
-                {locked.protocol.intervention.onsetLagDays}-day onset window. The window counts from
-                the first dose you actually took, so if that log is incomplete the exclusion may be
-                starting from the wrong day.
+                {doseWarnings.length} day(s) you marked as a missed dose sit inside the{" "}
+                {locked.protocol.intervention.onsetLagDays}-day onset window. That window counts from
+                your first real dose, so if the dose log has holes it may be starting on the wrong
+                day.
               </div>
             )}
 
@@ -142,8 +141,8 @@ export function Analysis() {
             <div className="card">
               <h3>Does this depend on your bad days?</h3>
               <p className="hint" style={{ marginBottom: "0.8rem" }}>
-                Re-runs the same analysis with every confounder-flagged day dropped. If the answer
-                changes, the result was resting on those days.
+                Same analysis, minus every day you flagged. If the answer changes, it was resting on
+                those days.
               </p>
               {!showSensitivity ? (
                 <button className="secondary" onClick={() => setShowSensitivity(true)}>
@@ -154,16 +153,15 @@ export function Analysis() {
                   {sensitivity.disagrees ? (
                     <div className="warn">
                       <strong>These two runs disagree.</strong>
-                      With every day included the verdict is{" "}
-                      <em>{phrase(sensitivity.all.verdict)}</em>; with {sensitivity.droppedDates.length}{" "}
-                      flagged day(s) dropped it becomes <em>{phrase(sensitivity.clean.verdict)}</em>.
-                      The result depends on days you marked unusual, which is worth understanding
-                      before you believe either one.
+                      All days in, it {phrase(sensitivity.all.verdict)}. Drop the{" "}
+                      {sensitivity.droppedDates.length} day(s) you flagged and it{" "}
+                      {phrase(sensitivity.clean.verdict)}. Your result depends on days you marked
+                      unusual. Work out why before you believe either one.
                     </div>
                   ) : (
                     <p className="hint">
-                      Both runs agree ({phrase(sensitivity.all.verdict)}), so the result does not
-                      hinge on the {sensitivity.droppedDates.length} flagged day(s).
+                      Both runs agree ({phrase(sensitivity.all.verdict)}). Your result doesn't hinge
+                      on the {sensitivity.droppedDates.length} day(s) you flagged.
                     </p>
                   )}
                   <div className="scroll-x">
@@ -282,22 +280,21 @@ function Result({ result, unit, mcid }: { result: AnalysisResult; unit: string; 
       {(result.a.neffFloored || result.b.neffFloored) && (
         <div className="warn">
           <strong>One phase has too little independent information.</strong>
-          Its effective count hit the floor of two, so the interval above is not a meaningful
-          estimate.
+          Its effective count hit the floor of two, so the interval above isn't meaningful.
         </div>
       )}
 
       {result.excludedDates.length > 0 && (
         <p className="hint">
-          {result.excludedDates.length} day(s) excluded by the onset lag or washout you declared.
-          They are drawn in grey on the chart and were never deleted.
+          {result.excludedDates.length} day(s) excluded by your onset lag or washout. Grey on the
+          chart, never deleted.
         </p>
       )}
 
       <p className="hint" style={{ fontSize: "0.75rem" }}>
         p = <span className="mono">{result.p < 0.001 ? "<0.001" : n(result.p, 3)}</span>, Welch df ={" "}
-        <span className="mono">{n(result.df, 1)}</span>. The p-value is not the headline; the
-        comparison against your threshold is.
+        <span className="mono">{n(result.df, 1)}</span>. The p-value isn't the headline. Your
+        threshold is.
       </p>
     </div>
   );

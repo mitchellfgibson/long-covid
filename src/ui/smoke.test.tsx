@@ -6,6 +6,7 @@ import { reducer, initialState, loadState, type AppState } from "../state/store"
 import { derivePhases } from "./Builder";
 import type { Observation } from "../types";
 import { gaussian, isoDates, mulberry32 } from "../stats/testutil";
+import { makeProtocol } from "../stats/fixtures";
 
 /**
  * This Node exposes its own method-less `localStorage` global, which shadows the
@@ -72,6 +73,86 @@ describe("the app renders", () => {
     expect(screen.getByRole("heading", { name: /Can this experiment answer/i })).toBeDefined();
     // A 3 ms threshold against ~6 ms of noise over 30 days cannot be adequate.
     expect(screen.getByText(/Underpowered|Infeasible/)).toBeDefined();
+  });
+});
+
+describe("moving between stages", () => {
+  it("labels the next button by where it goes, skipping stages you cannot use yet", () => {
+    render(<App />);
+    // "Can it work?" needs data, so it is skipped. The label must name the stage
+    // actually reached, not the one that was skipped over.
+    const next = screen.getByRole("button", { name: /→$/ });
+    expect(next.textContent).toContain("Write the protocol");
+
+    fireEvent.click(next);
+    expect(screen.getByRole("heading", { name: /Write the protocol/i })).toBeDefined();
+  });
+
+  it("steps forward once data exists", () => {
+    const g = gaussian(mulberry32(3));
+    localStorage.setItem(
+      "pipeline.v1",
+      JSON.stringify({
+        ...initialState,
+        observations: isoDates("2026-01-01", 30).map((date) => ({
+          date,
+          values: { hrv: 50 + 5 * g() },
+          confounders: [],
+        })),
+        metrics: [{ id: "hrv", label: "HRV", unit: "ms", direction: "higher_is_better" }],
+      }),
+    );
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: /Check the power →/ }));
+    expect(screen.getByRole("heading", { name: /Can this experiment answer/i })).toBeDefined();
+  });
+});
+
+describe("protocol history", () => {
+  const lockedState = (titles: string[]): AppState => ({
+    ...initialState,
+    metrics: [{ id: "hrv", label: "HRV", unit: "ms", direction: "higher_is_better" }],
+    observations: [{ date: "2026-01-01", values: { hrv: 50 }, confounders: [] }],
+    locks: titles.map((title, i) => ({
+      protocol: { ...makeProtocol(), title },
+      hash: `hash${i}`.padEnd(64, "0"),
+      lockedAt: `2026-0${i + 1}-01T12:00:00.000Z`,
+      afterStart: false,
+    })),
+  });
+
+  it("is hidden until something has been locked", () => {
+    render(<App />);
+    expect(screen.queryByLabelText("Your protocols")).toBeNull();
+  });
+
+  it("lists every protocol, newest first, marking the active one", () => {
+    localStorage.setItem("pipeline.v1", JSON.stringify(lockedState(["First try", "Second try"])));
+    render(<App />);
+
+    const picker = screen.getByLabelText("Your protocols") as HTMLSelectElement;
+    const options = [...picker.options].map((o) => o.textContent ?? "");
+    expect(options[0]).toContain("Second try");
+    expect(options[0]).toContain("(active)");
+    expect(options[1]).toContain("First try");
+    expect(options.some((o) => o.includes("Start a new protocol"))).toBe(true);
+  });
+
+  it("opens an older protocol and says it is not the current one", () => {
+    localStorage.setItem("pipeline.v1", JSON.stringify(lockedState(["First try", "Second try"])));
+    render(<App />);
+
+    fireEvent.change(screen.getByLabelText("Your protocols"), { target: { value: "0" } });
+    expect(screen.getByText(/earlier version/i)).toBeDefined();
+    expect(screen.getByText("First try")).toBeDefined();
+  });
+
+  it("keeps past locks when a new protocol is started", () => {
+    const before = lockedState(["First try"]);
+    const after = reducer(before, { type: "startNewProtocol" });
+    expect(after.locks).toHaveLength(1);
+    expect(after.draft).toEqual({});
+    expect(after.underpoweredAck).toBe(false);
   });
 });
 

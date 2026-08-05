@@ -22,9 +22,18 @@ function useTypedHash(hash: string, animate: boolean): string {
   return shown;
 }
 
-export function Sheet({ justLocked = false }: { justLocked?: boolean }) {
-  const locked = useLocked();
+export function Sheet({
+  justLocked = false,
+  lockIndex,
+}: {
+  justLocked?: boolean;
+  /** Which version to show. Omitted means the current one. */
+  lockIndex?: number;
+}) {
+  const latest = useLocked();
   const state = useStore();
+  const locked = lockIndex === undefined ? latest : (state.locks[lockIndex] ?? latest);
+  const isCurrent = lockIndex === undefined || lockIndex === state.locks.length - 1;
 
   const reduced =
     typeof window !== "undefined" &&
@@ -58,10 +67,17 @@ export function Sheet({ justLocked = false }: { justLocked?: boolean }) {
         </button>
       </div>
 
+      {!isCurrent && (
+        <div className="warn no-print">
+          <strong>This is an earlier version.</strong>
+          You're looking at version {(lockIndex ?? 0) + 1} of {state.locks.length}. The current one is
+          what gets analyzed.
+        </div>
+      )}
+
       <p className="hint no-print" style={{ marginBottom: "1rem" }}>
-        Plain enough to hand to a clinician. Post the fingerprint somewhere public and dated — a
-        gist, a tweet, an email to yourself — and the claim that you decided this in advance becomes
-        checkable rather than trusted.
+        Print this or hand it to a clinician. Post the fingerprint somewhere public and dated — a
+        gist, a tweet, an email to yourself — so you can prove the plan came before the data.
       </p>
 
       <article className="doc">
@@ -126,8 +142,8 @@ export function Sheet({ justLocked = false }: { justLocked?: boolean }) {
               : p.stoppingRule.condition}
             {p.stoppingRule.kind === "efficacy" && (
               <div style={{ fontSize: "0.88rem", marginTop: "0.3rem", color: "var(--phase-b)" }}>
-                An efficacy gate raises the false-positive rate. This was acknowledged at lock time
-                and no alpha correction was applied.
+                Efficacy gate. Raises the false-positive rate. Acknowledged at lock time, no alpha
+                correction applied.
               </div>
             )}
           </dd>
@@ -135,8 +151,7 @@ export function Sheet({ justLocked = false }: { justLocked?: boolean }) {
           <dt>Analysis</dt>
           <dd>
             Difference in phase means, Welch standard error on effective sample sizes corrected for
-            day-to-day carryover. The verdict is stated against the threshold above, not against
-            zero.
+            day-to-day carryover. Judged against the threshold above, not against zero.
           </dd>
 
           {(p.acknowledgments.underpowered || p.acknowledgments.efficacyGate) && (
@@ -144,9 +159,9 @@ export function Sheet({ justLocked = false }: { justLocked?: boolean }) {
               <dt>Acknowledged at lock time</dt>
               <dd style={{ fontSize: "0.92rem" }}>
                 {p.acknowledgments.underpowered &&
-                  "This design was known to be underpowered for the declared threshold. "}
+                  "Known to be underpowered for the threshold above, and run anyway. "}
                 {p.acknowledgments.efficacyGate &&
-                  "The efficacy gate's cost to the false-positive rate was accepted."}
+                  "Efficacy gate accepted, with its cost to the false-positive rate."}
               </dd>
             </>
           )}
@@ -181,8 +196,8 @@ export function Sheet({ justLocked = false }: { justLocked?: boolean }) {
             {amendments} amendment{amendments > 1 ? "s" : ""} to this protocol.
           </strong>
           {state.locks.some((l) => l.afterStart)
-            ? "At least one was made after the intervention began. That is recorded permanently and shown on every analysis."
-            : "All were made before the intervention began."}
+            ? "At least one came after the treatment started. That stays on the record and shows on every analysis."
+            : "All before the treatment started."}
         </div>
       )}
     </section>

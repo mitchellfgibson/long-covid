@@ -58,7 +58,7 @@ export function DailyEntry() {
   return (
     <section className="stack">
       <h2>Today</h2>
-      <p>One screen, fifteen seconds. Leave anything blank that you didn't measure — a missing day stays missing and is never filled in.</p>
+      <p>Leave anything you didn't measure blank. A missing day stays missing and never gets filled in.</p>
 
       <div className="card">
         <div className="field">
@@ -72,7 +72,7 @@ export function DailyEntry() {
         </div>
 
         {state.metrics.length === 0 ? (
-          <p className="hint">No metrics yet. Import a CSV first, or the form has nothing to ask for.</p>
+          <p className="hint">No metrics yet. Import a CSV first.</p>
         ) : (
           state.metrics.map((m) => (
             <div className="field" key={m.id}>
@@ -112,8 +112,8 @@ export function DailyEntry() {
             ))}
           </div>
           <p className="hint">
-            A missed dose and a missed reading are different events. The first dose you actually take
-            is what the onset window counts from.
+            A missed dose isn't the same as a missed reading. Your onset window counts from the
+            first dose you actually take.
           </p>
         </div>
 
@@ -138,8 +138,8 @@ export function DailyEntry() {
             ))}
           </div>
           <p className="hint">
-            These never touch the main analysis. They power a second pass with these days dropped, so
-            you can see whether the result depends on them.
+            These don't touch the main analysis. You can re-run without these days later and see if
+            it changes anything.
           </p>
           <div className="row" style={{ marginTop: "0.5rem" }}>
             <input

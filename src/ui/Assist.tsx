@@ -58,10 +58,9 @@ export function Assist() {
     <section className="stack">
       <h2>Optional writing help</h2>
       <p>
-        Off unless you turn it on. Two things only: turning your locked protocol into prose, and
-        suggesting confounders worth tracking. It is never shown a single computed number, and it
-        cannot check, interpret, or comment on your statistics — those are all local, deterministic
-        code.
+        Off unless you turn it on. It does two things: writes your locked protocol up as prose, and
+        suggests confounders to track. It never sees a single one of your numbers and can't touch
+        your statistics.
       </p>
 
       <div className="card">
@@ -76,9 +75,8 @@ export function Assist() {
             placeholder="sk-ant-…"
           />
           <p className="hint">
-            Held in memory for this tab only. It is never written to storage and disappears when you
-            reload. Your data still never leaves the device — only the protocol text above goes to
-            the API, and only when you press a button.
+            Held in this tab only, never saved, gone when you reload. Your data stays on the device
+            — only the protocol text goes out, and only when you press a button.
           </p>
         </div>
       </div>
@@ -88,8 +86,7 @@ export function Assist() {
       <div className="card">
         <h3>Summary for a clinician</h3>
         <p className="hint" style={{ marginBottom: "0.8rem" }}>
-          Three paragraphs describing what you are testing and how you will judge it. Design only —
-          no results, no numbers.
+          Three paragraphs on what you're testing and how you'll judge it. Design only, no results.
         </p>
         <button onClick={() => void doSummary()} disabled={!apiKey || !locked || busy !== ""}>
           {busy === "summary" ? "Writing…" : "Write the summary"}
@@ -103,7 +100,7 @@ export function Assist() {
       <div className="card">
         <h3>Confounders worth tracking</h3>
         <p className="hint" style={{ marginBottom: "0.8rem" }}>
-          Suggestions only. Nothing is added to your list unless you accept it.
+          Suggestions only. Nothing gets added unless you say so.
         </p>
         <button onClick={() => void doConfounders()} disabled={!apiKey || busy !== ""}>
           {busy === "confounders" ? "Thinking…" : "Suggest confounders"}

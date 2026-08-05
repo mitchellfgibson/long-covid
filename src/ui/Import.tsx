@@ -154,9 +154,8 @@ export function Import() {
       <section>
         <h2>Two readings, one day</h2>
         <p>
-          These dates carry more than one value for the same metric. Pipeline will not average them,
-          because the average is a number you never recorded. Decide which reading is right, correct
-          the file, and import it again.
+          These days have two different values for the same metric. They won't be averaged — the
+          average is a number you never recorded. Pick the right one, fix the file, import again.
         </p>
         <div className="card scroll-x">
           <table>
@@ -194,8 +193,8 @@ export function Import() {
       <section className="stack">
         <h2>Map the columns</h2>
         <p>
-          Pipeline does not assume any device's column names. Tell it which column is the date and
-          which columns are metrics worth tracking. It remembers this for next time.
+          Tell it which column is the date and which ones you want to track. It remembers this for
+          next time.
         </p>
 
         <div className="card">
@@ -214,9 +213,8 @@ export function Import() {
           {ambiguous && (
             <div className="warn">
               <strong>Which comes first, the month or the day?</strong>
-              Every value in this column has both numbers at 12 or below, so it reads either way.
-              Guessing would silently move readings by up to eleven months. Tell Pipeline which is
-              right.
+              Every value here has both numbers at 12 or below, so it reads either way. Guessing
+              would move your readings by up to eleven months. Which is it?
               <div className="row" style={{ marginTop: "0.6rem" }}>
                 <button
                   className={dateFormat === "mdy" ? "" : "secondary"}
@@ -280,8 +278,8 @@ export function Import() {
         <div className="card">
           <h3>Metrics to bring in</h3>
           <p className="hint" style={{ marginBottom: "0.8rem" }}>
-            Pick the numbers you want to analyze. The count is how many days actually carry a value —
-            a column of blanks cannot be analyzed, so it is not offered.
+            The count is how many days actually have a value. Empty columns can't be analyzed, so
+            they're greyed out.
           </p>
           {header
             .filter((h) => h !== dateColumn)
@@ -326,8 +324,8 @@ export function Import() {
     <section className="stack">
       <h2>Bring in your data</h2>
       <p>
-        Export a CSV from whatever you already use — a WHOOP or Oura export, a spreadsheet, anything
-        with one row per day. Nothing leaves your device.
+        A CSV from whatever you already use — WHOOP, Oura, a spreadsheet — one row per day. Nothing
+        leaves your device.
       </p>
 
       <div className="card">
@@ -371,8 +369,8 @@ export function Import() {
           <div className="card">
             <h3>Your metrics</h3>
             <p className="hint" style={{ marginBottom: "0.8rem" }}>
-              Which way is better decides how the final verdict reads. A fall in resting heart rate
-              is an improvement; a fall in HRV is not. Pipeline will not guess this for you.
+              Which way is better decides how your result reads. A drop in resting heart rate is
+              good; a drop in HRV isn't. This isn't guessed for you.
             </p>
             <div className="scroll-x">
               <table>

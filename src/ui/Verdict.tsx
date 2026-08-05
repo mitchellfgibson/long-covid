@@ -69,8 +69,8 @@ export function Verdict() {
     <section className="stack">
       <h2>Can this experiment answer your question?</h2>
       <p>
-        Before you start, Pipeline checks whether the change you care about is even visible through
-        your own day-to-day noise. This is the screen the whole tool exists for.
+        Check whether the change you care about is big enough to see through your own noise. Do this
+        before you start, not after.
       </p>
 
       <div className="card">
@@ -118,26 +118,25 @@ export function Verdict() {
         {driftMatters && (
           <div className="warn">
             <strong>Your baseline is already moving.</strong>
-            It drifts about {n(Math.abs(noise.slope) * 30, 1)} {unit} a month on its own. A trend
-            that size can look exactly like a treatment effect, and it is the most common reason an
-            n=1 result turns out to be nothing. Consider a longer baseline before you start.
+            It drifts about {n(Math.abs(noise.slope) * 30, 1)} {unit} a month on its own. Start the
+            treatment now and you won't be able to tell the drift from the effect. Collect more
+            baseline first.
           </div>
         )}
 
         {noise.method === "insufficient" && (
           <div className="warn">
-            <strong>Carryover could not be measured.</strong>
-            Your readings are too sparse or too irregular to tell whether one day predicts the next.
-            The numbers below assume they are independent, which almost certainly overstates how much
-            this baseline tells you.
+            <strong>Can't measure carryover.</strong>
+            Too few readings close enough together to tell whether one day predicts the next. The
+            numbers below assume they don't, which makes this baseline look better than it is.
           </div>
         )}
 
         {noise.rEff > 0 && noise.method !== "insufficient" && (
           <p className="hint">
-            Your readings carry over from one to the next, so {series.length} of them are worth about{" "}
-            <span className="mono">{Math.round(noise.neff)}</span> independent ones. Every calculation
-            here uses the smaller number.
+            Your readings carry over, so {series.length} of them are worth about{" "}
+            <span className="mono">{Math.round(noise.neff)}</span> independent ones. Everything below
+            uses the smaller number.
           </p>
         )}
 
@@ -169,8 +168,8 @@ export function Verdict() {
             }
           />
           <p className="hint">
-            Not the change you hope for — the smallest one that would actually change what you do.
-            Decide it now, while you still can't see the answer.
+            Not what you're hoping for. The smallest change that would actually make you keep doing
+            this. Pick it now, while you can't see the answer.
           </p>
         </div>
 
@@ -241,8 +240,8 @@ function VerdictPanel({ verdict, mcid, unit, floor, plannedDays, ack, onAck }: P
       {verdict.n2Floored && (
         <div className="warn">
           <strong>This phase is too short to mean anything.</strong>
-          The planned intervention phase carries fewer than two independent readings, so the number
-          below is not a real estimate. Lengthen the phase or take readings more often.
+          Fewer than two independent readings, so the number below isn't real. Make the phase longer
+          or take readings more often.
         </div>
       )}
 
@@ -251,11 +250,11 @@ function VerdictPanel({ verdict, mcid, unit, floor, plannedDays, ack, onAck }: P
           <>
             <h2>Adequate</h2>
             <p>
-              This design can detect a change of{" "}
+              You can detect{" "}
               <span className="mono">
                 {n(verdict.mde)} {unit}
               </span>
-              , which is at or below the {n(mcid)} {unit} you said would matter. Go ahead and lock it.
+              , and you said {n(mcid)} {unit} matters. This will work. Lock it.
             </p>
           </>
         )}
@@ -264,13 +263,12 @@ function VerdictPanel({ verdict, mcid, unit, floor, plannedDays, ack, onAck }: P
           <>
             <h2>Underpowered</h2>
             <p>
-              This design can only detect{" "}
+              You can only detect{" "}
               <span className="mono">
                 {n(verdict.mde)} {unit}
               </span>
-              . You said {n(mcid)} {unit} is what matters. An effect the size you care about would
-              most likely be missed — you would finish the experiment and conclude nothing happened,
-              whether or not something did.
+              , and you said {n(mcid)} {unit} matters. Run this as planned and you'll probably finish
+              with a null result whether or not it worked. You won't learn anything.
             </p>
             <p style={{ marginBottom: "0.4rem" }}>
               <strong>Three ways out.</strong>
@@ -281,13 +279,13 @@ function VerdictPanel({ verdict, mcid, unit, floor, plannedDays, ack, onAck }: P
                 instead of {plannedDays} — {verdict.additionalDays} more, about{" "}
                 <span className="mono">{verdict.requiredObs}</span> readings.
               </li>
-              <li>Pick a metric that bounces around less.</li>
+              <li>Use a less noisy metric.</li>
               <li>
-                Declare a larger threshold — at least{" "}
+                Raise your threshold to at least{" "}
                 <span className="mono">
                   {n(verdict.mde)} {unit}
                 </span>{" "}
-                — and accept you can only detect a bigger effect.
+                and accept you'll only catch a bigger effect.
               </li>
             </ol>
 
@@ -300,9 +298,7 @@ function VerdictPanel({ verdict, mcid, unit, floor, plannedDays, ack, onAck }: P
               />
               I understand this experiment is underpowered and I am choosing to run it anyway.
             </label>
-            <p className="hint">
-              This acknowledgment is recorded in the protocol and covered by the hash.
-            </p>
+            <p className="hint">This goes in the protocol and into the fingerprint.</p>
           </>
         )}
 
@@ -310,25 +306,24 @@ function VerdictPanel({ verdict, mcid, unit, floor, plannedDays, ack, onAck }: P
           <>
             <h2>Infeasible</h2>
             <p>
-              At this noise level, <strong>no intervention phase of any length</strong> reaches{" "}
-              {n(mcid)} {unit}. Your baseline alone caps the precision: even running the treatment
-              forever could not resolve a difference that small.
+              <strong>No treatment phase of any length</strong> gets you to {n(mcid)} {unit}. Your
+              baseline is too noisy — running the treatment forever wouldn't be enough.
             </p>
-            <p>This experiment cannot answer the question as posed. That is a real answer, and a useful one.</p>
+            <p>You can't answer this question with this metric. Better to know now.</p>
             <p style={{ marginBottom: "0.4rem" }}>
-              <strong>You have two levers, not one.</strong>
+              <strong>Two ways out.</strong>
             </p>
             <ol style={{ marginTop: 0, paddingLeft: "1.2rem", maxWidth: "34rem" }}>
               <li>
-                Collect about <span className="mono">{verdict.extraBaselineDays}</span> more baseline
-                days before starting.
+                Collect <span className="mono">{verdict.extraBaselineDays}</span> more baseline days
+                before you start.
               </li>
               <li>
-                Accept a threshold of at least{" "}
+                Accept {" "}
                 <span className="mono">
                   {n(verdict.feasibleMcid)} {unit}
-                </span>
-                , which this design can already detect.
+                </span>{" "}
+                as your threshold, which you can already detect.
               </li>
             </ol>
           </>
@@ -336,13 +331,12 @@ function VerdictPanel({ verdict, mcid, unit, floor, plannedDays, ack, onAck }: P
       </div>
 
       <p className="hint">
-        With an unlimited intervention phase, this baseline could at best detect{" "}
+        Best case, with a treatment phase of any length, this baseline detects{" "}
         <span className="mono">
           {n(floor)} {unit}
         </span>
-        . Planning uses your baseline's noise and assumes the treatment phase is no noisier —
-        treatments often make day-to-day variation worse, which is a reason to set your threshold
-        conservatively.
+        . All of this assumes the treatment phase is no noisier than baseline. Treatments often make
+        things bumpier, so set your threshold on the high side.
       </p>
     </>
   );

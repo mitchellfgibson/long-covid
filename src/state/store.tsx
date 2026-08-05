@@ -64,6 +64,7 @@ export type Action =
   | { type: "ackUnderpowered"; value: boolean }
   | { type: "ackEfficacy"; value: boolean }
   | { type: "lock"; lock: LockedProtocol }
+  | { type: "startNewProtocol" }
   | { type: "replaceAll"; state: AppState }
   | { type: "reset" };
 
@@ -118,6 +119,11 @@ export function reducer(state: AppState, action: Action): AppState {
 
     case "lock":
       return { ...state, locks: [...state.locks, action.lock] };
+
+    // Clears the draft so another protocol can be built. Past locks are kept —
+    // they are the record of what was already run.
+    case "startNewProtocol":
+      return { ...state, draft: {}, underpoweredAck: false, efficacyAck: false };
 
     case "replaceAll":
       return action.state;

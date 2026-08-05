@@ -144,8 +144,8 @@ export function Builder({ onLocked }: { onLocked: () => void }) {
     <section className="stack">
       <h2>Write the protocol</h2>
       <p>
-        Everything here gets frozen when you lock. That is the point: a decision rule written down
-        before the data arrives is worth something, and one written after is worth nothing.
+        Everything here freezes when you lock. Write the rule down before the data comes in, so you
+        can't rewrite it once you've seen the answer.
       </p>
 
       <div className="card">
@@ -193,7 +193,7 @@ export function Builder({ onLocked }: { onLocked: () => void }) {
                 })
               }
             />
-            <p className="hint">Your words. Pipeline never suggests or checks a dose.</p>
+            <p className="hint">Your words. Nothing here suggests or checks a dose.</p>
           </div>
           <div className="field" style={{ flex: "1 1 10rem" }}>
             <label htmlFor="sched">Schedule</label>
@@ -224,8 +224,7 @@ export function Builder({ onLocked }: { onLocked: () => void }) {
               }
             />
             <p className="hint">
-              Days after the first dose before you would expect any effect. These are excluded from
-              the analysis.
+              Days after your first dose before you'd expect anything. Excluded from the analysis.
             </p>
           </div>
           <div className="field" style={{ flex: "1 1 10rem" }}>
@@ -261,7 +260,7 @@ export function Builder({ onLocked }: { onLocked: () => void }) {
               </option>
             ))}
           </select>
-          <p className="hint">One primary outcome. Everything else is secondary, and secondary means it cannot decide the experiment.</p>
+          <p className="hint">One primary outcome. Everything else is secondary and can't decide the experiment.</p>
         </div>
 
         <div className="field">
@@ -276,8 +275,8 @@ export function Builder({ onLocked }: { onLocked: () => void }) {
             placeholder="Half the seasonal swing I already see, and the smallest change I'd notice in how I feel."
           />
           <p className="hint">
-            {(d.mcidRationale ?? "").trim().length}/20 characters minimum. This is the field that
-            stops you quietly moving the goalposts later.
+            {(d.mcidRationale ?? "").trim().length}/20 characters minimum. This is what stops you
+            moving the goalposts later.
           </p>
         </div>
       </div>
@@ -351,8 +350,8 @@ export function Builder({ onLocked }: { onLocked: () => void }) {
       <div className="card">
         <h3>Stopping rule</h3>
         <p className="hint" style={{ marginBottom: "0.8rem" }}>
-          Pipeline writes the sentence, not you. A generated rule cannot drift away from the rule the
-          analysis actually enforces.
+          You pick the parts, the sentence gets written for you. That way the rule you read is the
+          rule that runs.
         </p>
 
         <div className="field">
@@ -394,10 +393,9 @@ export function Builder({ onLocked }: { onLocked: () => void }) {
         {ruleKind === "efficacy" && (
           <div className="warn">
             <strong>Stopping early when it looks good inflates your false-positive rate.</strong>
-            Every extra peek is another chance for noise to cross your line, so a rule that lets you
-            stop at the first good-looking moment finds "effects" more often than it should. Pipeline
-            will not quietly shrink your alpha to compensate — that trade is yours to make knowingly.
-            A futility gate costs you almost nothing by comparison.
+            Every peek is another chance for noise to cross your line, so stopping at the first good
+            moment finds "effects" that aren't there. Your alpha won't be quietly adjusted to
+            compensate. A futility gate costs you almost nothing by comparison.
             <label style={{ fontWeight: 400, marginTop: "0.7rem" }}>
               <input
                 type="checkbox"
@@ -422,9 +420,8 @@ export function Builder({ onLocked }: { onLocked: () => void }) {
       <div className="card">
         <h3>Lock this protocol</h3>
         <p>
-          Locking freezes every field above and fingerprints it with SHA-256. Post that fingerprint
-          somewhere public and dated, and you can prove afterwards that you did not move the
-          goalposts. That is the difference between a self-experiment and a story about one.
+          Locking freezes every field above and fingerprints it. Post the fingerprint somewhere
+          public and dated, and you can prove later that you didn't move the goalposts.
         </p>
         {blockers.length > 0 && (
           <p className="hint">Still needs {blockers.join(", ")}.</p>
