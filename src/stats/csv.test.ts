@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { extractSeries } from "./series";
 import { detectDateFormat, normalizeDate, parseCsv, rowsToObservations } from "./csv";
 
 describe("csv parsing", () => {
@@ -91,6 +92,48 @@ describe("other formats exports produce", () => {
   it("refuses two-digit years rather than guessing the century", () => {
     const d = detectDateFormat(["01/05/26", "02/06/26"]);
     expect(d.kind).toBe("unparseable");
+  });
+});
+
+describe("a real Apollo daily export", () => {
+  const csv = [
+    "date,recovery,strain,sleep_hours,resting_hr,hrv_ms,spo2_pct",
+    "07/17/2026,71,5,2.98,45,104,",
+    "07/18/2026,42,9.7,1.01,43,103,",
+    "07/19/2026,,8.7,,,90,",
+    "07/24/2026,,0.3,,,90,",
+    "08/01/2026,26,4.7,1.86,50,95,",
+    "08/05/2026,,1.6,,,,",
+  ].join("\n");
+
+  it("reads MM/DD/YYYY where only some rows disambiguate the order", () => {
+    const rows = parseCsv(csv);
+    const idx = rows[0]!.indexOf("date");
+    // 07/17 has a second field above 12; 08/01 does not. One is enough.
+    expect(detectDateFormat(rows.slice(1).map((r) => r[idx] ?? ""))).toEqual({ kind: "mdy" });
+  });
+
+  it("keeps every day that carries any reading, and drops no gaps", () => {
+    const rows = parseCsv(csv);
+    const obs = rowsToObservations(rows, {
+      dateColumn: "date",
+      dateFormat: "mdy",
+      metricColumns: Object.fromEntries(rows[0]!.slice(1).map((c) => [c, c])),
+    });
+    expect(obs).toHaveLength(6);
+    expect(obs[0]!.date).toBe("2026-07-17");
+    expect(obs[obs.length - 1]!.date).toBe("2026-08-05");
+    // Sparse columns keep only the days they were recorded on.
+    expect(extractSeries(obs, "strain")).toHaveLength(6);
+    expect(extractSeries(obs, "recovery")).toHaveLength(3);
+    expect(extractSeries(obs, "hrv_ms")).toHaveLength(5);
+    // An entirely blank column yields nothing rather than a column of zeros.
+    expect(extractSeries(obs, "spo2_pct")).toHaveLength(0);
+  });
+
+  it("strips a byte-order mark so the first column name still matches", () => {
+    const rows = parseCsv("﻿" + csv);
+    expect(rows[0]![0]).toBe("date");
   });
 });
 

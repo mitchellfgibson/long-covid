@@ -1,7 +1,10 @@
 import type { Observation } from "../types";
 
 /** RFC4180-ish: quoted fields, doubled quotes, CRLF or LF. */
-export function parseCsv(text: string): string[][] {
+export function parseCsv(input: string): string[][] {
+  // Excel and many exporters prepend a byte-order mark, which would otherwise
+  // become part of the first column's name and break header matching.
+  const text = input.charCodeAt(0) === 0xfeff ? input.slice(1) : input;
   const rows: string[][] = [];
   let row: string[] = [];
   let field = "";

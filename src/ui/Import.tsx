@@ -22,6 +22,25 @@ const slug = (s: string) =>
     .replace(/[^a-z0-9]+/g, "_")
     .replace(/^_|_$/g, "") || "metric";
 
+/**
+ * A first guess at units from the column name, since exports encode them there.
+ * Always editable — a wrong guess is cosmetic, and the user sees it before locking.
+ * Direction is deliberately *not* guessed: it decides which way the §5.2 verdict
+ * reads, and inferring "lower is better" from a name would silently invert a result.
+ */
+function guessUnit(column: string): string {
+  const c = column.toLowerCase();
+  const bracket = /[([]([^)\]]{1,12})[)\]]/.exec(column);
+  if (bracket) return bracket[1]!.trim();
+  if (/_ms$|\bms\b/.test(c)) return "ms";
+  if (/_pct$|_percent$|%/.test(c)) return "%";
+  if (/_min$|_mins$|_minutes$/.test(c)) return "min";
+  if (/_hours$|_hrs$/.test(c)) return "h";
+  if (/_bpm$|_hr$|heart_rate/.test(c)) return "bpm";
+  if (/_c$|_celsius$/.test(c)) return "°C";
+  return "";
+}
+
 export function Import() {
   const state = useStore();
   const dispatch = useDispatch();
@@ -46,6 +65,20 @@ export function Import() {
     (detected?.kind === "iso" || detected?.kind === "mdy" || detected?.kind === "dmy"
       ? detected.kind
       : "");
+
+  /** How many days actually carry a number, per column. A column of blanks is not a metric. */
+  const counts = useMemo(() => {
+    if (stage.kind !== "mapping") return {};
+    const out: Record<string, number> = {};
+    header.forEach((col, i) => {
+      if (col === dateColumn) return;
+      out[col] = stage.rows.slice(1).filter((r) => {
+        const cell = r[i]?.trim() ?? "";
+        return cell !== "" && Number.isFinite(Number(cell));
+      }).length;
+    });
+    return out;
+  }, [stage, header, dateColumn]);
 
   /** Show one real value and what it will become, so a wrong reading is visible before import. */
   const sampleDate = useMemo(() => {
@@ -101,7 +134,7 @@ export function Import() {
       const metrics: Metric[] = Object.entries(metricColumns).map(([col, id]) => ({
         id,
         label: col,
-        unit: "",
+        unit: guessUnit(col),
         direction: "higher_is_better",
       }));
       dispatch({ type: "import", observations, metrics, mapping });
@@ -247,21 +280,32 @@ export function Import() {
         <div className="card">
           <h3>Metrics to bring in</h3>
           <p className="hint" style={{ marginBottom: "0.8rem" }}>
-            Pick the numbers you want to analyze. You can add more later.
+            Pick the numbers you want to analyze. The count is how many days actually carry a value —
+            a column of blanks cannot be analyzed, so it is not offered.
           </p>
           {header
             .filter((h) => h !== dateColumn)
-            .map((h) => (
-              <label key={h} style={{ fontWeight: 400, marginBottom: "0.4rem" }}>
-                <input
-                  type="checkbox"
-                  checked={Boolean(chosen[h])}
-                  onChange={(e) => setChosen({ ...chosen, [h]: e.target.checked })}
-                  style={{ width: "auto", marginRight: "0.5em" }}
-                />
-                {h}
-              </label>
-            ))}
+            .map((h) => {
+              const n = counts[h] ?? 0;
+              return (
+                <label
+                  key={h}
+                  style={{ fontWeight: 400, marginBottom: "0.4rem", opacity: n === 0 ? 0.45 : 1 }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={Boolean(chosen[h]) && n > 0}
+                    disabled={n === 0}
+                    onChange={(e) => setChosen({ ...chosen, [h]: e.target.checked })}
+                    style={{ width: "auto", marginRight: "0.5em" }}
+                  />
+                  {h}{" "}
+                  <span className="mono" style={{ fontSize: "0.8rem", color: "var(--ink-60)" }}>
+                    {n === 0 ? "empty" : `${n} reading${n === 1 ? "" : "s"}`}
+                  </span>
+                </label>
+              );
+            })}
         </div>
 
         {error && <div className="warn">{error}</div>}
@@ -308,23 +352,88 @@ export function Import() {
       {error && <div className="warn">{error}</div>}
 
       {state.observations.length > 0 ? (
-        <div className="card">
-          <h3>Already loaded</h3>
-          <div className="stat">
-            <span>Readings</span>
-            <span className="v">{state.observations.length}</span>
+        <>
+          <div className="card">
+            <h3>Already loaded</h3>
+            <div className="stat">
+              <span>Days with at least one reading</span>
+              <span className="v">{state.observations.length}</span>
+            </div>
+            <div className="stat">
+              <span>Span</span>
+              <span className="v">
+                {state.observations[0]?.date} to{" "}
+                {state.observations[state.observations.length - 1]?.date}
+              </span>
+            </div>
           </div>
-          <div className="stat">
-            <span>Metrics</span>
-            <span className="v">{state.metrics.map((m) => m.label).join(", ") || "—"}</span>
+
+          <div className="card">
+            <h3>Your metrics</h3>
+            <p className="hint" style={{ marginBottom: "0.8rem" }}>
+              Which way is better decides how the final verdict reads. A fall in resting heart rate
+              is an improvement; a fall in HRV is not. Pipeline will not guess this for you.
+            </p>
+            <div className="scroll-x">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Metric</th>
+                    <th>Readings</th>
+                    <th>Unit</th>
+                    <th>Which way is better?</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {state.metrics.map((m) => {
+                    const n = state.observations.filter(
+                      (o) => o.values[m.id] !== undefined && o.values[m.id] !== null,
+                    ).length;
+                    return (
+                      <tr key={m.id}>
+                        <td>{m.label}</td>
+                        <td className="n">{n}</td>
+                        <td>
+                          <input
+                            type="text"
+                            aria-label={`Unit for ${m.label}`}
+                            value={m.unit}
+                            placeholder="—"
+                            style={{ maxWidth: "6rem" }}
+                            onChange={(e) =>
+                              dispatch({
+                                type: "updateMetric",
+                                id: m.id,
+                                patch: { unit: e.target.value },
+                              })
+                            }
+                          />
+                        </td>
+                        <td>
+                          <select
+                            aria-label={`Direction for ${m.label}`}
+                            value={m.direction}
+                            style={{ maxWidth: "12rem" }}
+                            onChange={(e) =>
+                              dispatch({
+                                type: "updateMetric",
+                                id: m.id,
+                                patch: { direction: e.target.value as Metric["direction"] },
+                              })
+                            }
+                          >
+                            <option value="higher_is_better">Higher is better</option>
+                            <option value="lower_is_better">Lower is better</option>
+                          </select>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
-          <div className="stat">
-            <span>Span</span>
-            <span className="v">
-              {state.observations[0]?.date} to {state.observations[state.observations.length - 1]?.date}
-            </span>
-          </div>
-        </div>
+        </>
       ) : (
         <div className="empty">
           <p style={{ margin: 0 }}>No data yet. Start with a CSV export, or enter days by hand.</p>

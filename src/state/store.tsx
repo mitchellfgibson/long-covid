@@ -57,6 +57,7 @@ export type Action =
   | { type: "import"; observations: Observation[]; metrics: Metric[]; mapping: ColumnMapping }
   | { type: "upsertObservation"; observation: Observation }
   | { type: "setDose"; dose: DoseRecord }
+  | { type: "updateMetric"; id: string; patch: Partial<Metric> }
   | { type: "addConfounder"; id: string; label: string }
   | { type: "patchDraft"; patch: Partial<Protocol> }
   | { type: "setPlan"; days?: number; adherence?: number }
@@ -88,6 +89,12 @@ export function reducer(state: AppState, action: Action): AppState {
       const rest = state.doses.filter((d) => d.date !== action.dose.date);
       return { ...state, doses: [...rest, action.dose].sort((a, b) => a.date.localeCompare(b.date)) };
     }
+
+    case "updateMetric":
+      return {
+        ...state,
+        metrics: state.metrics.map((m) => (m.id === action.id ? { ...m, ...action.patch } : m)),
+      };
 
     case "addConfounder":
       if (state.confounders.some((c) => c.id === action.id)) return state;
